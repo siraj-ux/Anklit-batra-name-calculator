@@ -2,16 +2,10 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Star, CalendarIcon } from 'lucide-react';
-import { format, parse, isValid } from 'date-fns';
+// Removed CalendarIcon since we are using native picker
+import { Sparkles, Star } from 'lucide-react'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   calculateNameNumber,
   calculateBirthNumber,
@@ -19,12 +13,15 @@ import {
   getCompatibility,
 } from '@/lib/numerology';
 
+// Get today's date for the 'max' attribute
+const today = new Date().toISOString().split("T")[0];
+
 export default function NumerologyForm() {
   const [name, setName] = useState('');
   const [day, setDay] = useState<string>('');
   const [month, setMonth] = useState<string>('');
   const [year, setYear] = useState<string>('');
-  const [dateInput, setDateInput] = useState('');
+  const [dateInput, setDateInput] = useState(''); // Stores YYYY-MM-DD for the native input
 
   const [result, setResult] = useState<null | {
     nameNum: number;
@@ -34,46 +31,20 @@ export default function NumerologyForm() {
     message: string;
   }>(null);
 
-  // --- LOGIC (UNTOUCHED) ---
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let input = e.target.value.replace(/\D/g, ''); 
-    if (input.length > 8) input = input.slice(0, 8);
+  // Updated logic to handle native date picker change
+  const handleNativeDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value; // Format: YYYY-MM-DD
+    setDateInput(val);
 
-    let formatted = input;
-    if (input.length > 2 && input.length <= 4) {
-      formatted = `${input.slice(0, 2)}-${input.slice(2)}`;
-    } else if (input.length > 4) {
-      formatted = `${input.slice(0, 2)}-${input.slice(2, 4)}-${input.slice(4)}`;
-    }
-
-    setDateInput(formatted);
-
-    if (input.length === 8) {
-      const d = input.slice(0, 2);
-      const m = input.slice(2, 4);
-      const y = input.slice(4, 8);
-      
-      const parsedDate = parse(`${d}-${m}-${y}`, 'dd-MM-yyyy', new Date());
-      if (isValid(parsedDate)) {
-        setDay(d);
-        setMonth(m);
-        setYear(y);
-      }
-    } else {
-      setDay('');
-    }
-  };
-
-  const handleDateSelect = (selectedDate: Date | undefined) => {
-    if (selectedDate) {
-      const d = String(selectedDate.getDate()).padStart(2, '0');
-      const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const y = String(selectedDate.getFullYear());
-      
-      setDay(d);
-      setMonth(m);
+    if (val) {
+      const [y, m, d] = val.split('-');
       setYear(y);
-      setDateInput(`${d}-${m}-${y}`);
+      setMonth(m);
+      setDay(d);
+    } else {
+      setYear('');
+      setMonth('');
+      setDay('');
     }
   };
 
@@ -119,7 +90,6 @@ export default function NumerologyForm() {
         transition={{ duration: 0.6 }}
         className="bg-[#0f0817] border border-white/10 rounded-[32px] p-8 md:p-12 shadow-2xl shadow-purple-950/20"
       >
-        {/* Header Section */}
         <div className="flex items-center gap-3 mb-12">
           <span className="text-purple-400 text-xl">✦</span>
           <h2 className="text-xl font-serif tracking-[0.15em] uppercase text-slate-100">
@@ -128,7 +98,6 @@ export default function NumerologyForm() {
         </div>
 
         <div className="space-y-10">
-          {/* Full Name Field */}
           <div className="space-y-3">
             <label className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400 block">
               Full Name
@@ -144,39 +113,24 @@ export default function NumerologyForm() {
             </p>
           </div>
 
-          {/* Date of Birth Field */}
+          {/* --- UPDATED DATE SECTION START --- */}
           <div className="space-y-3">
             <label className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400 block">
               Date of Birth
             </label>
-            <div className="relative group">
+            <div className="relative">
               <Input
-                placeholder="dd-mm-yyyy"
+                type="date"
+                required
+                max={today}
                 value={dateInput}
-                onChange={handleTextChange}
-                maxLength={10}
-                className="h-16 bg-[#181126] border-white/5 text-slate-200 placeholder:text-slate-500 placeholder:font-serif focus:ring-purple-500/30 rounded-xl px-6 text-lg w-full transition-all"
+                onChange={handleNativeDateChange}
+                className="h-16 bg-[#181126] border-white/5 text-slate-200 focus:ring-purple-500/30 rounded-xl px-6 text-lg w-full transition-all appearance-none block [color-scheme:dark]"
               />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white transition-colors">
-                    <CalendarIcon className="h-6 w-6" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-[#181126] border-white/10" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={dateInput.length === 10 ? parse(dateInput, 'dd-MM-yyyy', new Date()) : undefined}
-                    onSelect={handleDateSelect}
-                    disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
             </div>
           </div>
+          {/* --- UPDATED DATE SECTION END --- */}
 
-          {/* Action Button */}
           <Button
             onClick={handleCalculate}
             disabled={!name.trim() || !day || !month || !year}
@@ -187,7 +141,6 @@ export default function NumerologyForm() {
           </Button>
         </div>
 
-        {/* Results Display (Visible after calculation if you decide to show it here) */}
         <AnimatePresence>
           {result && (
             <motion.div
