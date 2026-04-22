@@ -1,36 +1,31 @@
+"use client";
+
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Star } from 'lucide-react';
+import { Sparkles, Star, CalendarIcon } from 'lucide-react';
+import { format, parse, isValid } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   calculateNameNumber,
   calculateBirthNumber,
   calculateDestinyNumber,
   getCompatibility,
-  numberMeanings,
 } from '@/lib/numerology';
-
-const days = Array.from({ length: 31 }, (_, i) => i + 1);
-const months = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: currentYear - 1900 + 1 }, (_, i) => currentYear - i);
 
 export default function NumerologyForm() {
   const [name, setName] = useState('');
   const [day, setDay] = useState<string>('');
   const [month, setMonth] = useState<string>('');
   const [year, setYear] = useState<string>('');
+  const [dateInput, setDateInput] = useState('');
+
   const [result, setResult] = useState<null | {
     nameNum: number;
     birthNum: number;
@@ -39,173 +34,197 @@ export default function NumerologyForm() {
     message: string;
   }>(null);
 
+  // --- LOGIC (UNTOUCHED) ---
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let input = e.target.value.replace(/\D/g, ''); 
+    if (input.length > 8) input = input.slice(0, 8);
+
+    let formatted = input;
+    if (input.length > 2 && input.length <= 4) {
+      formatted = `${input.slice(0, 2)}-${input.slice(2)}`;
+    } else if (input.length > 4) {
+      formatted = `${input.slice(0, 2)}-${input.slice(2, 4)}-${input.slice(4)}`;
+    }
+
+    setDateInput(formatted);
+
+    if (input.length === 8) {
+      const d = input.slice(0, 2);
+      const m = input.slice(2, 4);
+      const y = input.slice(4, 8);
+      
+      const parsedDate = parse(`${d}-${m}-${y}`, 'dd-MM-yyyy', new Date());
+      if (isValid(parsedDate)) {
+        setDay(d);
+        setMonth(m);
+        setYear(y);
+      }
+    } else {
+      setDay('');
+    }
+  };
+
+  const handleDateSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate) {
+      const d = String(selectedDate.getDate()).padStart(2, '0');
+      const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const y = String(selectedDate.getFullYear());
+      
+      setDay(d);
+      setMonth(m);
+      setYear(y);
+      setDateInput(`${d}-${m}-${y}`);
+    }
+  };
+
   const handleCalculate = () => {
-  if (!name.trim() || !day || !month || !year) return;
+    if (!name.trim() || !day || !month || !year) return;
 
-  const nameNum = calculateNameNumber(name);
-  const birthNum = calculateBirthNumber(parseInt(day));
-  const destinyNum = calculateDestinyNumber(
-    parseInt(day),
-    parseInt(month),
-    parseInt(year)
-  );
+    const nameNum = calculateNameNumber(name);
+    const birthNum = calculateBirthNumber(parseInt(day));
+    const destinyNum = calculateDestinyNumber(
+      parseInt(day),
+      parseInt(month),
+      parseInt(year)
+    );
 
-  const compat = getCompatibility(nameNum, birthNum, destinyNum);
+    const compat = getCompatibility(nameNum, birthNum, destinyNum);
 
-  const params = new URLSearchParams({
-    name,
-    day,
-    month,
-    year,
-    nameNum: String(nameNum),
-    birthNum: String(birthNum),
-    destinyNum: String(destinyNum),
-    status: compat.status,
-    message: compat.message,
-  });
+    const params = new URLSearchParams({
+      name,
+      day,
+      month,
+      year,
+      nameNum: String(nameNum),
+      birthNum: String(birthNum),
+      destinyNum: String(destinyNum),
+      status: compat.status,
+      message: compat.message,
+    });
 
-  // ✅ Redirect to /ty with params
-  window.location.href = `/ty?${params.toString()}`;
-};
+    window.location.href = `/ty?${params.toString()}`;
+  };
 
   const statusColor = result?.status === 'Favourable'
     ? 'text-emerald-400'
     : result?.status === 'Neutral'
-      ? 'text-accent'
+      ? 'text-purple-300'
       : 'text-rose-400';
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full max-w-2xl mx-auto p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="bg-card/80 backdrop-blur-xl border border-border rounded-2xl p-6 md:p-8 glow-purple"
+        className="bg-[#0f0817] border border-white/10 rounded-[32px] p-8 md:p-12 shadow-2xl shadow-purple-950/20"
       >
-        <div className="flex items-center gap-2 mb-6">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-display font-semibold text-foreground">
-            Enter Your Details
+        {/* Header Section */}
+        <div className="flex items-center gap-3 mb-12">
+          <span className="text-purple-400 text-xl">✦</span>
+          <h2 className="text-xl font-serif tracking-[0.15em] uppercase text-slate-100">
+            Enter your details
           </h2>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+        <div className="space-y-10">
+          {/* Full Name Field */}
+          <div className="space-y-3">
+            <label className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400 block">
               Full Name
             </label>
             <Input
               placeholder="Enter your full name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-secondary/50 border-border text-foreground placeholder:text-muted-foreground focus:ring-primary"
+              className="h-16 bg-[#181126] border-white/5 text-slate-200 placeholder:text-slate-500 placeholder:font-serif placeholder:italic focus:ring-purple-500/30 rounded-xl px-6 text-lg transition-all"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Use the name on your documents / salary slip / visiting card
+            <p className="text-[13px] text-slate-500 mt-4 leading-relaxed font-sans opacity-80">
+              Use the name on your documents, salary slip, or visiting card.
             </p>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+          {/* Date of Birth Field */}
+          <div className="space-y-3">
+            <label className="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400 block">
               Date of Birth
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              <Select value={day} onValueChange={setDay}>
-                <SelectTrigger className="bg-secondary/50 border-border text-foreground">
-                  <SelectValue placeholder="Day" />
-                </SelectTrigger>
-                <SelectContent>
-                  {days.map((d) => (
-                    <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={month} onValueChange={setMonth}>
-                <SelectTrigger className="bg-secondary/50 border-border text-foreground">
-                  <SelectValue placeholder="Month" />
-                </SelectTrigger>
-                <SelectContent>
-                  {months.map((m, i) => (
-                    <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={year} onValueChange={setYear}>
-                <SelectTrigger className="bg-secondary/50 border-border text-foreground">
-                  <SelectValue placeholder="Year" />
-                </SelectTrigger>
-                <SelectContent>
-                  {years.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="relative group">
+              <Input
+                placeholder="dd-mm-yyyy"
+                value={dateInput}
+                onChange={handleTextChange}
+                maxLength={10}
+                className="h-16 bg-[#181126] border-white/5 text-slate-200 placeholder:text-slate-500 placeholder:font-serif focus:ring-purple-500/30 rounded-xl px-6 text-lg w-full transition-all"
+              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white transition-colors">
+                    <CalendarIcon className="h-6 w-6" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-[#181126] border-white/10" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={dateInput.length === 10 ? parse(dateInput, 'dd-MM-yyyy', new Date()) : undefined}
+                    onSelect={handleDateSelect}
+                    disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
+          {/* Action Button */}
           <Button
             onClick={handleCalculate}
             disabled={!name.trim() || !day || !month || !year}
-            className="w-full gradient-mystic text-primary-foreground font-semibold text-base py-6 rounded-xl hover:opacity-90 transition-opacity"
+            className="w-full h-16 bg-[#1c1529] border border-white/5 hover:bg-[#251b36] text-slate-200 font-medium text-lg rounded-2xl transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-40"
           >
-            <Star className="w-4 h-4 mr-2" />
-            Calculate Name Number
+            <span className="text-purple-400 text-lg">✦</span>
+            <span className="tracking-wide">Calculate Name Number</span>
           </Button>
         </div>
 
+        {/* Results Display (Visible after calculation if you decide to show it here) */}
         <AnimatePresence>
           {result && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.5 }}
-              className="mt-6 border-t border-border pt-6"
+              className="mt-12 pt-12 border-t border-white/5"
             >
-              <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-3 gap-4 mb-8">
                 {[
-                  { label: 'Name Number', value: result.nameNum },
-                  { label: 'Birth Number', value: result.birthNum },
-                  { label: 'Destiny Number', value: result.destinyNum },
+                  { label: 'Name No.', value: result.nameNum },
+                  { label: 'Birth No.', value: result.birthNum },
+                  { label: 'Destiny No.', value: result.destinyNum },
                 ].map((item) => (
-                  <motion.div
-                    key={item.label}
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    className="bg-secondary/60 rounded-xl p-3 text-center"
-                  >
-                    <div className="text-2xl font-display font-bold text-primary glow-text">
+                  <div key={item.label} className="bg-[#181126] rounded-2xl p-5 text-center border border-white/5">
+                    <div className="text-3xl font-serif font-bold text-purple-400">
                       {item.value}
                     </div>
-                    <div className="text-xs text-muted-foreground mt-1">{item.label}</div>
-                  </motion.div>
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-slate-500 mt-2 font-bold">
+                      {item.label}
+                    </div>
+                  </div>
                 ))}
               </div>
 
-              <div className="bg-secondary/40 rounded-xl p-4">
-                <div className={`font-display font-semibold text-sm mb-1 ${statusColor}`}>
-                  Status: {result.status}
+              <div className="bg-[#181126]/50 rounded-2xl p-6 border border-white/5 text-center">
+                <div className={`font-serif text-lg mb-2 ${statusColor}`}>
+                   {result.status}
                 </div>
-                <p className="text-sm text-secondary-foreground leading-relaxed">
-                  {result.message}
+                <p className="text-sm text-slate-400 leading-relaxed italic">
+                  "{result.message}"
                 </p>
-                {numberMeanings[result.nameNum] && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <span className="text-primary font-medium">Name Number {result.nameNum}:</span>{' '}
-                    {numberMeanings[result.nameNum]}
-                  </p>
-                )}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
-
-      <p className="text-xs text-muted-foreground text-center mt-4 max-w-md mx-auto leading-relaxed opacity-60">
-        This calculator is for educational guidance only. We don't store your personal data. For paid services, we follow ISO 27001 and the DPDP Act 2023.
-      </p>
     </div>
   );
 }
